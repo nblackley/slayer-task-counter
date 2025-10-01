@@ -53,23 +53,40 @@ public class SlayerTaskCounterPlugin extends Plugin
 	// Pattern to match slayer task completion messages (same as TaskJinglePlugin)
 	private static final Pattern CHAT_COMPLETE_MESSAGE = Pattern.compile("You've completed (?:at least )?(?<tasks>[\\d,]+) (?:Wilderness )?tasks?(?: and received \\d+ points, giving you a total of (?<points>[\\d,]+)| and reached the maximum amount of Slayer points \\((?<points2>[\\d,]+)\\))?");
 
+	// Bracelet chat messages
+	private static final String SLAUGHTER_MESSAGE = "Your bracelet of slaughter prevents your slayer count from decreasing. It then crumbles to dust.";
+	private static final String EXPEDITIOUS_MESSAGE = "Your expeditious bracelet helps you progress your slayer task faster. It then crumbles to dust.";
+
+	// Cannon chat message
+	private static final String CANNON_BREAK_MESSAGE = "Your cannon has broken!";
+
 	// Chat command constant
 	private static final String TASKS_COMMAND_STRING = "!tasks";
 
 	private int currentTaskCount;
+	private int slaughterCount;
+	private int expeditiousCount;
+	private int cannonBreakCount;
 
 	@Override
 	protected void startUp() throws Exception
 	{
 		log.info("Slayer Task Counter started!");
 		try {
-			// Load the current task count from config
+			// Load the current counts from config
 			if (config != null) {
 				currentTaskCount = config.taskCount();
-				log.info("Loaded task count: {}", currentTaskCount);
+				slaughterCount = config.slaughterCount();
+				expeditiousCount = config.expeditiousCount();
+				cannonBreakCount = config.cannonBreakCount();
+				log.info("Loaded counts - Tasks: {}, Slaughter: {}, Expeditious: {}, Cannon Breaks: {}", 
+					currentTaskCount, slaughterCount, expeditiousCount, cannonBreakCount);
 			} else {
 				log.warn("Config is null, using defaults");
 				currentTaskCount = 0;
+				slaughterCount = 0;
+				expeditiousCount = 0;
+				cannonBreakCount = 0;
 			}
 
 			// Create and add sidebar panel
@@ -92,6 +109,9 @@ public class SlayerTaskCounterPlugin extends Plugin
 		} catch (Exception e) {
 			log.error("Error loading config or creating panel", e);
 			currentTaskCount = 0;
+			slaughterCount = 0;
+			expeditiousCount = 0;
+			cannonBreakCount = 0;
 		}
 	}
 
@@ -145,6 +165,62 @@ public class SlayerTaskCounterPlugin extends Plugin
 					}
 				}
 			}
+			
+			// Check for bracelet usage if tracking is enabled
+			if (config != null && config.trackBracelets()) {
+				// Check for Bracelet of Slaughter usage
+				if (chatMsg.equals(SLAUGHTER_MESSAGE)) {
+					slaughterCount++;
+					configManager.setConfiguration("slayertaskcounter", "slaughterCount", slaughterCount);
+					
+					if (config.showTaskMessages()) {
+						sendChatMessage("Bracelet of Slaughter used! Total used: " + slaughterCount);
+					}
+					
+					log.info("Bracelet of Slaughter used! Updated count to: {}", slaughterCount);
+					
+					// Update panel if it exists
+					if (panel != null) {
+						panel.updateBraceletCounts();
+					}
+				}
+				
+				// Check for Expeditious Bracelet usage
+				if (chatMsg.equals(EXPEDITIOUS_MESSAGE)) {
+					expeditiousCount++;
+					configManager.setConfiguration("slayertaskcounter", "expeditiousCount", expeditiousCount);
+					
+					if (config.showTaskMessages()) {
+						sendChatMessage("Expeditious Bracelet used! Total used: " + expeditiousCount);
+					}
+					
+					log.info("Expeditious Bracelet used! Updated count to: {}", expeditiousCount);
+					
+					// Update panel if it exists
+					if (panel != null) {
+						panel.updateBraceletCounts();
+					}
+				}
+			}
+			
+			// Check for cannon breaks if tracking is enabled
+			if (config != null && config.trackCannon()) {
+				if (chatMsg.equals(CANNON_BREAK_MESSAGE)) {
+					cannonBreakCount++;
+					configManager.setConfiguration("slayertaskcounter", "cannonBreakCount", cannonBreakCount);
+					
+					if (config.showTaskMessages()) {
+						sendChatMessage("Cannon broken! Total breaks: " + cannonBreakCount);
+					}
+					
+					log.info("Cannon broken! Updated count to: {}", cannonBreakCount);
+					
+					// Update panel if it exists
+					if (panel != null) {
+						panel.updateCannonCount();
+					}
+				}
+			}
 		} catch (Exception e) {
 			log.error("Error in onChatMessage", e);
 		}
@@ -160,23 +236,75 @@ public class SlayerTaskCounterPlugin extends Plugin
 		return currentTaskCount;
 	}
 
+	public int getSlaughterCount()
+	{
+		// Refresh from config to ensure we have the latest value
+		if (config != null) {
+			slaughterCount = config.slaughterCount();
+		}
+		return slaughterCount;
+	}
+
+	public int getExpeditiousCount()
+	{
+		// Refresh from config to ensure we have the latest value
+		if (config != null) {
+			expeditiousCount = config.expeditiousCount();
+		}
+		return expeditiousCount;
+	}
+
+	public int getCannonBreakCount()
+	{
+		// Refresh from config to ensure we have the latest value
+		if (config != null) {
+			cannonBreakCount = config.cannonBreakCount();
+		}
+		return cannonBreakCount;
+	}
+
 	/**
 	 * Handles the !tasks chat command
-	 * Replaces the command message with the current task count
+	 * Replaces the command message with the current task count, bracelet usage, and cannon breaks
 	 */
 	void tasksLookup(ChatMessage chatMessage, String message)
 	{
-		// Get the current task count
+		// Get the current counts
 		int taskCount = getCurrentTaskCount();
+		int slaughterUsed = getSlaughterCount();
+		int expeditiousUsed = getExpeditiousCount();
+		int cannonBreaks = getCannonBreakCount();
 		
 		// Build the response message with formatting
-		String response = new ChatMessageBuilder()
+		ChatMessageBuilder builder = new ChatMessageBuilder()
 			.append(ChatColorType.HIGHLIGHT)
 			.append("Slayer Tasks Completed: ")
 			.append(ChatColorType.NORMAL)
-			.append(String.format("%,d", taskCount))
-			.build();
+			.append(String.format("%,d", taskCount));
 		
+		// Add bracelet information if tracking is enabled and any bracelets have been used
+		if (config != null && config.trackBracelets() && (slaughterUsed > 0 || expeditiousUsed > 0)) {
+			builder.append(ChatColorType.HIGHLIGHT)
+				.append(" | Bracelets Used - ")
+				.append(ChatColorType.NORMAL)
+				.append("Slaughter: ")
+				.append(ChatColorType.HIGHLIGHT)
+				.append(String.valueOf(slaughterUsed))
+				.append(ChatColorType.NORMAL)
+				.append(", Expeditious: ")
+				.append(ChatColorType.HIGHLIGHT)
+				.append(String.valueOf(expeditiousUsed));
+		}
+		
+		// Add cannon break information if tracking is enabled and cannon has broken
+		if (config != null && config.trackCannon() && cannonBreaks > 0) {
+			builder.append(ChatColorType.HIGHLIGHT)
+				.append(" | Cannon Breaks: ")
+				.append(ChatColorType.NORMAL)
+				.append(String.valueOf(cannonBreaks));
+		}
+		
+		String response = builder.build();
 		
 		// Replace the original message with our formatted response
 		final MessageNode messageNode = chatMessage.getMessageNode();

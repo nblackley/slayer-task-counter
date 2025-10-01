@@ -12,6 +12,9 @@ public class SlayerTaskCounterPanel extends PluginPanel
 {
 	private final SlayerTaskCounterPlugin plugin;
 	private final JLabel taskCountLabel;
+	private final JLabel slaughterCountLabel;
+	private final JLabel expeditiousCountLabel;
+	private final JLabel cannonBreakCountLabel;
 	private final JButton refreshButton;
 
 	public SlayerTaskCounterPanel(SlayerTaskCounterPlugin plugin)
@@ -44,18 +47,66 @@ public class SlayerTaskCounterPanel extends PluginPanel
 		contentPanel.add(taskCountLabel);
 
 		// Add some spacing
+		contentPanel.add(Box.createVerticalStrut(15));
+
+		// Bracelet tracking section
+		JLabel braceletSectionLabel = new JLabel("Bracelet Usage:");
+		braceletSectionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+		braceletSectionLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 14));
+		contentPanel.add(braceletSectionLabel);
+
+		contentPanel.add(Box.createVerticalStrut(10));
+
+		// Slaughter bracelet count
+		JLabel slaughterLabelText = new JLabel("Bracelet of Slaughter:");
+		slaughterLabelText.setAlignmentX(Component.CENTER_ALIGNMENT);
+		contentPanel.add(slaughterLabelText);
+
+		slaughterCountLabel = new JLabel("0");
+		slaughterCountLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 16));
+		slaughterCountLabel.setForeground(Color.ORANGE);
+		slaughterCountLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+		contentPanel.add(slaughterCountLabel);
+
+		contentPanel.add(Box.createVerticalStrut(10));
+
+		// Expeditious bracelet count
+		JLabel expeditiousLabelText = new JLabel("Expeditious Bracelet:");
+		expeditiousLabelText.setAlignmentX(Component.CENTER_ALIGNMENT);
+		contentPanel.add(expeditiousLabelText);
+
+		expeditiousCountLabel = new JLabel("0");
+		expeditiousCountLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 16));
+		expeditiousCountLabel.setForeground(Color.CYAN);
+		expeditiousCountLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+		contentPanel.add(expeditiousCountLabel);
+
+		contentPanel.add(Box.createVerticalStrut(15));
+
+		// Cannon break count
+		JLabel cannonLabelText = new JLabel("Cannon Breaks:");
+		cannonLabelText.setAlignmentX(Component.CENTER_ALIGNMENT);
+		contentPanel.add(cannonLabelText);
+
+		cannonBreakCountLabel = new JLabel("0");
+		cannonBreakCountLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 16));
+		cannonBreakCountLabel.setForeground(Color.RED);
+		cannonBreakCountLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+		contentPanel.add(cannonBreakCountLabel);
+
+		// Add some spacing
 		contentPanel.add(Box.createVerticalStrut(20));
 
 		// Refresh button
 		refreshButton = new JButton("Refresh");
 		refreshButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-		refreshButton.addActionListener(e -> updateTaskCount());
+		refreshButton.addActionListener(e -> updateAllCounts());
 		contentPanel.add(refreshButton);
 
 		add(contentPanel, BorderLayout.CENTER);
 
-		// Initialize with current count
-		updateTaskCount();
+		// Initialize with current counts
+		updateAllCounts();
 	}
 
 	public void updateTaskCount()
@@ -68,5 +119,42 @@ public class SlayerTaskCounterPanel extends PluginPanel
 			log.error("Error updating task count in panel", e);
 			taskCountLabel.setText("Error");
 		}
+	}
+
+	public void updateBraceletCounts()
+	{
+		try {
+			int slaughterCount = plugin.getSlaughterCount();
+			int expeditiousCount = plugin.getExpeditiousCount();
+			
+			slaughterCountLabel.setText(String.valueOf(slaughterCount));
+			expeditiousCountLabel.setText(String.valueOf(expeditiousCount));
+			
+			log.debug("Updated panel bracelet counts - Slaughter: {}, Expeditious: {}", 
+				slaughterCount, expeditiousCount);
+		} catch (Exception e) {
+			log.error("Error updating bracelet counts in panel", e);
+			slaughterCountLabel.setText("Error");
+			expeditiousCountLabel.setText("Error");
+		}
+	}
+
+	public void updateCannonCount()
+	{
+		try {
+			int cannonBreaks = plugin.getCannonBreakCount();
+			cannonBreakCountLabel.setText(String.valueOf(cannonBreaks));
+			log.debug("Updated panel cannon break count to: {}", cannonBreaks);
+		} catch (Exception e) {
+			log.error("Error updating cannon break count in panel", e);
+			cannonBreakCountLabel.setText("Error");
+		}
+	}
+
+	public void updateAllCounts()
+	{
+		updateTaskCount();
+		updateBraceletCounts();
+		updateCannonCount();
 	}
 }
